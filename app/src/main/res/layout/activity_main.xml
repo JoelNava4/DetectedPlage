@@ -1,22 +1,48 @@
-<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="vertical"
-    android:fitsSystemWindows="true"
+    android:gravity="center"
+    android:padding="24dp"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
     <Button
-        android:id="@+id/btnAbrirCamara"
+        android:id="@+id/btnCamara"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Abrir cámara"
-        android:layout_margin="16dp"
-        android:layout_gravity="center_horizontal" />
+        android:text="Abrir Cámara" />
+
+    <Button
+        android:id="@+id/btnGaleria"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Abrir Galería"
+        android:layout_marginTop="16dp" />
+
+    <Button
+        android:id="@+id/btnProcesar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Procesar Plaga"
+        android:layout_marginTop="16dp" />
+
+    <ImageView
+        android:id="@+id/previewImage"
+        android:layout_width="300dp"
+        android:layout_height="300dp"
+        android:scaleType="centerCrop"
+        android:layout_marginTop="24dp"
+        android:visibility="gone" />
+
+    <VideoView
+        android:id="@+id/previewVideo"
+        android:layout_width="300dp"
+        android:layout_height="300dp"
+        android:layout_marginTop="24dp"
+        android:visibility="gone" />
 
     <FrameLayout
         android:id="@+id/contenedor"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
+        android:layout_height="match_parent" />
 
 </LinearLayout>
