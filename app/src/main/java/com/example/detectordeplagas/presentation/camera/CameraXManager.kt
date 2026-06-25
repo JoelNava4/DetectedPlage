@@ -1,6 +1,11 @@
 package com.example.detectordeplagas.presentation.camera
 
+import android.content.ContentValues
 import android.content.Context
+import android.net.Uri
+import android.os.Handler
+import android.os.Looper
+import android.provider.MediaStore
 import android.util.Log
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
@@ -8,8 +13,8 @@ import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
-import java.io.File
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -33,29 +38,32 @@ class CameraXManager(
 
             val cameraProvider = cameraProviderFuture.get()
 
-            val preview = Preview.Builder().build().also {
-                it.setSurfaceProvider(previewView.surfaceProvider)
+            val preview = Preview.Builder().build()
+
+            // 🔥 SIEMPRE EN EL HILO PRINCIPAL
+            Handler(Looper.getMainLooper()).post {
+                preview.setSurfaceProvider(previewView.surfaceProvider)
+
+                imageCapture = ImageCapture.Builder()
+                    .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+                    .build()
+
+                val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+
+                try {
+                    cameraProvider.unbindAll()
+                    cameraProvider.bindToLifecycle(
+                        lifecycleOwner,
+                        cameraSelector,
+                        preview,
+                        imageCapture
+                    )
+                } catch (exc: Exception) {
+                    Log.e("CameraXManager", "Error al iniciar preview", exc)
+                }
             }
 
-            imageCapture = ImageCapture.Builder()
-                .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-                .build()
-
-            val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
-
-            try {
-                cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(
-                    lifecycleOwner,
-                    cameraSelector,
-                    preview,
-                    imageCapture
-                )
-            } catch (exc: Exception) {
-                Log.e("CameraXManager", "Error al iniciar preview", exc)
-            }
-
-        }, cameraExecutor) // ← EJECUTOR COMPATIBLE CON API 24
+        }, ContextCompat.getMainExecutor(context)) // 🔥 EJECUTOR CORRECTO
     }
 
     /**
@@ -66,45 +74,54 @@ class CameraXManager(
     }
 
     /**
-     * Captura una foto y devuelve los bytes
+     * Captura una foto y la guarda en la galería
      */
-    fun capturarFoto(): ByteArray {
-        val imageCapture = imageCapture ?: return ByteArray(0)
+    fun capturarFoto(
+        onFotoGuardada: (uri: Uri?) -> Unit
+    ) {
+        val imageCapture = imageCapture ?: run {
+            Log.e("CameraX", "imageCapture es null")
+            onFotoGuardada(null)
+            return
+        }
 
-        val archivo = File.createTempFile("plaga_", ".jpg", context.cacheDir)
+        val nombreArchivo = "plaga_${System.currentTimeMillis()}.jpg"
 
-        val outputOptions = ImageCapture.OutputFileOptions.Builder(archivo).build()
+        val contentValues = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, nombreArchivo)
+            put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+            put(MediaStore.Images.Media.RELATIVE_PATH, "DCIM/Camera") // 🔥 Xiaomi-safe
+        }
 
-        var resultado: ByteArray? = null
-        val lock = Object()
+        val resolver = context.contentResolver
+        val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+
+        if (uri == null) {
+            Log.e("CameraX", "resolver.insert devolvió null")
+            onFotoGuardada(null)
+            return
+        }
+
+        val outputOptions = ImageCapture.OutputFileOptions.Builder(
+            resolver.openOutputStream(uri)!! // 🔥 STREAM DIRECTO (MIUI-friendly)
+        ).build()
 
         imageCapture.takePicture(
             outputOptions,
-            cameraExecutor,
+            ContextCompat.getMainExecutor(context),
             object : ImageCapture.OnImageSavedCallback {
 
                 override fun onError(exception: ImageCaptureException) {
-                    Log.e("CameraXManager", "Error al capturar foto", exception)
-                    synchronized(lock) {
-                        resultado = null
-                        lock.notify()
-                    }
+                    Log.e("CameraX", "Error al capturar foto", exception)
+                    onFotoGuardada(null)
                 }
 
                 override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                    val bytes = archivo.readBytes()
-                    synchronized(lock) {
-                        resultado = bytes
-                        lock.notify()
-                    }
+                    Log.d("CameraX", "Foto guardada en: $uri")
+                    onFotoGuardada(uri)
                 }
             }
         )
-
-        synchronized(lock) {
-            lock.wait(5000)
-        }
-
-        return resultado ?: ByteArray(0)
     }
+
 }

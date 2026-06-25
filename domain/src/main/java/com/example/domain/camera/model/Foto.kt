@@ -1,6 +1,6 @@
 package com.example.domain.camera.model
 
 data class Foto(
-    val bytes: ByteArray,
+    val uri: String,
     val timestamp: Long
 )

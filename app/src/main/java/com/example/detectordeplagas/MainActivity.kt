@@ -1,42 +1,32 @@
 package com.example.detectordeplagas
 
-import android.net.Uri
-import androidx.appcompat.app.AppCompatActivity
+import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.lifecycle.lifecycleScope
-import android.graphics.BitmapFactory
 import android.widget.VideoView
+import androidx.appcompat.app.AppCompatActivity
 import com.example.detectordeplagas.Porcesamiento.ProcessingFragment
-import com.example.detectordeplagas.galeria.GalleryRepositoryImpl
+import com.example.detectordeplagas.galeria.GallerySelectorFragment
 import com.example.detectordeplagas.presentation.camera.view.CameraFragment
 import com.example.domain.Galeria.MediaFile
 import com.example.domain.Galeria.MediaType
 import java.io.File
-import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var repo: GalleryRepositoryImpl
-
-    private val seleccionarMedia =
-        registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-            uri?.let { mostrarPreview(it) }
-        }
+    private var mediaSeleccionada: MediaFile? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        repo = GalleryRepositoryImpl(contentResolver)
-
         val btnCamara = findViewById<Button>(R.id.btnCamara)
         val btnGaleria = findViewById<Button>(R.id.btnGaleria)
         val btnProcesar = findViewById<Button>(R.id.btnProcesar)
 
+        // 📸 Abrir cámara
         btnCamara.setOnClickListener {
             supportFragmentManager.beginTransaction()
                 .replace(R.id.contenedor, CameraFragment())
@@ -44,30 +34,41 @@ class MainActivity : AppCompatActivity() {
                 .commit()
         }
 
+        // 🖼️ Abrir nuestro selector personalizado
         btnGaleria.setOnClickListener {
-            seleccionarMedia.launch("image/* video/*")
+            supportFragmentManager.beginTransaction()
+                .replace(R.id.contenedor, GallerySelectorFragment())
+                .addToBackStack(null)
+                .commit()
         }
 
+        // 🤖 Procesar imagen o video seleccionado
         btnProcesar.setOnClickListener {
             mediaSeleccionada?.let { media ->
                 supportFragmentManager.beginTransaction()
-                    .replace(R.id.contenedor, ProcessingFragment(media.bytes, media.type == MediaType.VIDEO))
+                    .replace(
+                        R.id.contenedor,
+                        ProcessingFragment(media.bytes, media.type == MediaType.VIDEO)
+                    )
                     .addToBackStack(null)
                     .commit()
-            } ?: Toast.makeText(this, "Primero selecciona una imagen o video", Toast.LENGTH_SHORT).show()
+            } ?: Toast.makeText(
+                this,
+                "Primero selecciona una imagen o video",
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
-    private var mediaSeleccionada: MediaFile? = null
-
-    private fun mostrarPreview(uri: Uri) {
-        lifecycleScope.launch {
-            val media = repo.obtenerMediaDesdeUri(uri)
-            mediaSeleccionada = media
-            mostrarEnPantalla(media)
-        }
+    // 🔥 Esta función la llama el selector cuando el usuario toca una foto
+    fun setMediaSeleccionadaDesdePath(path: String) {
+        val bytes = File(path).readBytes()
+        val media = MediaFile(bytes, MediaType.IMAGE)
+        mediaSeleccionada = media
+        mostrarEnPantalla(media)
     }
 
+    // 👀 Mostrar preview en pantalla
     private fun mostrarEnPantalla(media: MediaFile?) {
         if (media == null) {
             Toast.makeText(this, "Error al cargar archivo", Toast.LENGTH_SHORT).show()
@@ -96,4 +97,3 @@ class MainActivity : AppCompatActivity() {
         }
     }
 }
-

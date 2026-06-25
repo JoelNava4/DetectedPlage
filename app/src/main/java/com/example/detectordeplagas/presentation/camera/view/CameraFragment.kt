@@ -5,6 +5,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.Toast
 import androidx.camera.view.PreviewView
 import androidx.fragment.app.Fragment
 import com.example.detectordeplagas.R
@@ -26,8 +27,13 @@ class CameraFragment : Fragment() {
         cameraXManager = CameraXManager(requireContext())
 
         view.findViewById<Button>(R.id.btnCapturar).setOnClickListener {
-            val bytes = cameraXManager.capturarFoto()
-            // Aquí ya tienes la foto en bytes
+            cameraXManager.capturarFoto { uri ->
+                if (uri != null) {
+                    Toast.makeText(requireContext(), "Foto guardada en galería", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(requireContext(), "Error al guardar foto", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
 
         return view
@@ -36,8 +42,8 @@ class CameraFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // ⭐ USAR EL CICLO DE VIDA DEL FRAGMENT
-        cameraXManager.iniciarPreview(previewView, this)
+        // ⭐ USAR EL CICLO DE VIDA CORRECTO
+        cameraXManager.iniciarPreview(previewView, viewLifecycleOwner)
     }
 
     override fun onDestroyView() {

@@ -6,5 +6,5 @@ interface CameraRepository {
 
     suspend fun detenerPreview()
 
-    suspend fun capturarFoto(): Foto
+    suspend fun capturarFoto(onResultado: (Foto?) -> Unit)
 }
